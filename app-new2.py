@@ -28,7 +28,6 @@ PREMIUM_STYLE = """
         background-color: #0e1117;
     }
     .stMain {
-        background-color: #FFF
         }
     .stApp {
         background: linear-gradient(135deg, #0e1117 0%, #1a1c24 100%);
@@ -43,7 +42,7 @@ PREMIUM_STYLE = """
         letter-spacing: -1px;
     }
     .stChatMessage {
-        background-color: #e3e3e3;
+        background-color: #333333;
         border-radius: 10px;
         border: 1px solid #30363d;
         margin-bottom: 10px;
@@ -177,7 +176,7 @@ def main() -> None:
         st.session_state["messages"] = []
 
     # API Key Handling
-    api_key = os.environ.get("DEEPSEEK_API_KEY")
+    api_key = os.environ.get("GROQ_API_KEY")
     if not api_key:
         st.warning("⚠️ Backend connection not established. Please check your configuration.")
         return
