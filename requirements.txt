@@ -4,4 +4,5 @@ langchain-community
 chromadb
 sentence-transformers
 pypdf
+langchain-groq
 python-dotenv
