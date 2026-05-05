@@ -1,0 +1,7 @@
+streamlit
+langchain-deepseek
+langchain-community
+chromadb
+sentence-transformers
+pypdf
+python-dotenv
