@@ -27,8 +27,8 @@ from llama_cloud import AsyncLlamaCloud
 
 # ====== 配置設定 ======
 # 建議將 API Key 放在環境變數，這裡暫時根據你的要求寫死
-LLAMA_CLOUD_API_KEY = "llx-WMVJZj75Fk3adn4oytyzq2eeiOhOjOe1eo9XLL9sQ0CTdm0L"
-os.environ["DEEPSEEK_API_KEY"] = 'sk-3fde1399fa244f1c8e0db5b3c34df846'
+LLAMA_CLOUD_API_KEY = os.environ.get("LLAMA_CLOUD_API_KEY")
+api_key = os.environ.get("DEEPSEEK_API_KEY")
 DATA_DIR = Path("./data/pdfs")
 INDEX_DIR = Path("./storage")
 
@@ -39,6 +39,7 @@ Settings.llm = DeepSeek(
     model="deepseek-chat",
     temperature=0.1,
     timeout=600.0,
+    api_key=api_key
 )
 # 增大 Chunk 以確保題目完整性
 Settings.chunk_size = 1024

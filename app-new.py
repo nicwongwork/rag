@@ -23,7 +23,7 @@ from llama_cloud import AsyncLlamaCloud
 
 # ====== 1. 配置設定 ======
 # 這裡建議 API Key 還是放在環境變數，若要寫死請確保安全
-LLAMA_CLOUD_API_KEY = "llx-WMVJZj75Fk3adn4oytyzq2eeiOhOjOe1eo9XLL9sQ0CTdm0L"
+LLAMA_CLOUD_API_KEY = os.environ.get("LLAMA_CLOUD_API_KEY")
 DATA_DIR = Path("./data/pdfs")
 INDEX_DIR = Path("./storage")
 
