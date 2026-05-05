@@ -1,0 +1,30 @@
+# --- Python 相關 ---
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.env
+
+# --- Streamlit 相關 ---
+.streamlit/config.toml
+.streamlit/secrets.toml
+
+# --- RAG 數據庫與模型 (最重要，唔好傳上去) ---
+# 本地向量數據庫
+chroma_db/
+storage/
+
+# 如果你之後下載咗本地模型，通常會喺呢啲 folder
+models/
+.cache/
+
+# --- 操作系統與暫存檔 ---
+.DS_Store
+Thumbs.db
+*.bak
+*.tmp
+temp_file_*
+
+# --- 忽略大型 PDF 檔案 (建議) ---
+# 既然你係用 Upload 方式，就唔好將 Data folder 內嘅原始 PDF 傳上去
+data/
