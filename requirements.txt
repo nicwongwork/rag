@@ -6,3 +6,4 @@ sentence-transformers
 pypdf
 python-dotenv
 langchain-groq
+protobuf==3.20.3
