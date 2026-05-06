@@ -19,7 +19,7 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 # ====== 配置設定 ======
 EMBEDDING_MODEL_NAME = "sentence-transformers/all-MiniLM-L6-v2"
 
-# 恢復 Premium UI 樣式
+# Premium UI 樣式
 PREMIUM_STYLE = """
 <style>
     .stApp {
@@ -79,23 +79,24 @@ def main():
     if "messages" not in st.session_state:
         st.session_state["messages"] = []
 
+    # 獲取 InMemory Vectorstore
+    vs = load_vectorstore()
+
     # --- 左側邊欄 ---
     with st.sidebar:
         st.title("📚 管理中心")
 
-        # 記憶體重置按鈕
-        if st.button("🔥 徹底重置所有記憶"):
+        # 記憶體重置按鈕 (保留一鍵清空功能)
+        if st.button("🔥 徹底清空所有書籍"):
             st.session_state["processed_files"] = set()
             st.session_state["messages"] = []
-            st.cache_resource.clear()  # 清除 Cache 令 InMemory DB 重新初始化
-            st.success("記憶已重置！")
+            st.cache_resource.clear()
+            st.success("所有記憶已重置！")
             st.rerun()
 
         st.divider()
-        uploaded_file = st.file_uploader("上傳 PDF 講義", type=["pdf"])
-
-        # 獲取 InMemory Vectorstore
-        vs = load_vectorstore()
+        st.subheader("📥 上傳書籍")
+        uploaded_file = st.file_uploader("上傳 PDF 講義", type=["pdf"], label_visibility="collapsed")
 
         if uploaded_file:
             if uploaded_file.name not in st.session_state["processed_files"]:
@@ -107,33 +108,53 @@ def main():
                     loader = PyPDFLoader(tmp_path)
                     documents = loader.load()
 
-                    # 強制修正 Metadata，令之後可以過濾檔案
                     for doc in documents:
                         doc.metadata["source"] = uploaded_file.name
 
                     splitter = RecursiveCharacterTextSplitter(chunk_size=700, chunk_overlap=100)
-
-                    # 寫入 RAM，唔再觸發硬碟報錯
                     vs.add_documents(splitter.split_documents(documents))
 
                     st.session_state["processed_files"].add(uploaded_file.name)
                     os.remove(tmp_path)
                     st.rerun()
 
-        st.divider()
-
         # 獲取目前記憶體內有嘅書單
         all_data = vs.get()
         existing_files = sorted(list(set([m["source"] for m in all_data["metadatas"] if "source" in m])))
 
+        st.divider()
+        st.subheader("🗑️ 刪除單一書籍")
+        if existing_files:
+            # 讓用戶選擇要刪除的書
+            file_to_delete = st.selectbox("選擇要移除嘅講義：", existing_files, key="delete_box")
+
+            if st.button(f"刪除 {file_to_delete}"):
+                # 1. 根據 source 名稱搵出所有對應嘅數據 ID
+                target_data = vs.get(where={"source": file_to_delete})
+                ids_to_delete = target_data.get("ids", [])
+
+                if ids_to_delete:
+                    # 2. 叫 ChromaDB 刪除呢堆 ID
+                    vs.delete(ids=ids_to_delete)
+
+                # 3. 喺 Session State 入面除名
+                if file_to_delete in st.session_state["processed_files"]:
+                    st.session_state["processed_files"].remove(file_to_delete)
+
+                st.success(f"已成功刪除 {file_to_delete}！")
+                st.rerun()
+        else:
+            st.info("目前數據庫是空的")
+
+        st.divider()
+        st.subheader("🎯 閱讀設定")
         selected_file = st.selectbox(
-            "🎯 切換閱讀中的書籍：",
+            "切換提問範圍：",
             ["全部書籍"] + existing_files,
             index=0
         )
-
         if existing_files:
-            st.caption(f"目前數據庫內共有 {len(existing_files)} 本書")
+            st.caption(f"目前共收錄 {len(existing_files)} 本書")
 
     # --- 主聊天區域 ---
     st.title("🎓 Study Assistant")
@@ -163,12 +184,10 @@ def main():
 
         with st.chat_message("assistant"):
             try:
-                # 準備檢索參數
                 search_kwargs = {"k": 4}
                 if selected_file != "全部書籍":
                     search_kwargs["filter"] = {"source": selected_file}
 
-                # 進行檢索
                 docs = vs.similarity_search(user_input, **search_kwargs)
 
                 if not docs:
