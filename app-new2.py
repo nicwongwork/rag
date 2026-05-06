@@ -21,16 +21,48 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 CHROMA_DIR = os.path.join(os.getcwd(), "chroma_db")
 EMBEDDING_MODEL_NAME = "sentence-transformers/all-MiniLM-L6-v2"
 
+# 恢復你原本嘅 Premium UI CSS
+PREMIUM_STYLE = """
+<style>
+    .stApp {
+        background: linear-gradient(135deg, #0e1117 0%, #1a1c24 100%);
+    }
+    h1 {
+        color: #ffffff;
+        font-family: 'Inter', sans-serif;
+        font-weight: 700;
+        letter-spacing: -1px;
+    }
+    .stChatMessage {
+        background-color: #333333;
+        border-radius: 10px;
+        border: 1px solid #30363d;
+        margin-bottom: 10px;
+    }
+    .stButton>button {
+        width: 100%;
+        border-radius: 8px;
+        border: 1px solid #30363d;
+        background-color: #21262d;
+        color: #c9d1d9;
+        transition: all 0.2s;
+    }
+    .stButton>button:hover {
+        background-color: #30363d;
+        border-color: #8b949e;
+    }
+</style>
+"""
+
 @st.cache_resource
 def get_embeddings():
     return HuggingFaceEmbeddings(model_name=EMBEDDING_MODEL_NAME, model_kwargs={'device': 'cpu'})
 
 def load_vectorstore():
-    """初始化或讀取 Vectorstore，加入 PersistentClient 保護"""
+    """初始化 Vectorstore，使用 PersistentClient 避開 Tenant 報錯"""
     if not os.path.exists(CHROMA_DIR):
         os.makedirs(CHROMA_DIR)
 
-    # 呢種寫法係目前最穩陣、避開 Tenant 報錯嘅方式
     persistent_client = chromadb.PersistentClient(path=CHROMA_DIR)
 
     return Chroma(
@@ -43,7 +75,9 @@ def get_llm(api_key: str):
     return ChatGroq(model="llama-3.3-70b-versatile", groq_api_key=api_key, temperature=0.3)
 
 def main():
-    st.set_page_config(page_title="Source from PDF", layout="wide")
+    # 設定 Page 並注入 CSS Style
+    st.set_page_config(page_title="Source from PDF", page_icon="📚", layout="wide")
+    st.markdown(PREMIUM_STYLE, unsafe_allow_html=True)
 
     if "processed_files" not in st.session_state:
         st.session_state["processed_files"] = set()
@@ -65,7 +99,6 @@ def main():
         st.divider()
         uploaded_file = st.file_uploader("上傳 PDF 講義", type=["pdf"])
 
-        # 建立 Vectorstore 實例
         vs = load_vectorstore()
 
         if uploaded_file:
@@ -78,6 +111,7 @@ def main():
                     loader = PyPDFLoader(tmp_path)
                     documents = loader.load()
 
+                    # 修正檔名顯示邏輯
                     for doc in documents:
                         doc.metadata["source"] = uploaded_file.name
 
@@ -89,7 +123,7 @@ def main():
                     st.rerun()
 
         st.divider()
-        # 獲取現有書籍
+        # 獲取現有書籍名單
         all_data = vs.get()
         existing_files = sorted(list(set([m["source"] for m in all_data["metadatas"] if "source" in m])))
 
@@ -100,6 +134,7 @@ def main():
         )
 
     st.title("🎓 Study Assistant")
+    st.markdown("*SOURCE TO YOUR STUDIES*")
 
     api_key = os.environ.get("GROQ_API_KEY")
     if not api_key:
@@ -108,6 +143,7 @@ def main():
 
     llm = get_llm(api_key)
 
+    # 聊天氣泡顯示
     for msg in st.session_state["messages"]:
         with st.chat_message(msg["role"]):
             st.markdown(msg["content"])
