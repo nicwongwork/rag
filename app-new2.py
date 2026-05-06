@@ -2,6 +2,7 @@ import os
 import shutil
 import tempfile
 import streamlit as st
+import chromadb
 
 from pathlib import Path
 from dotenv import load_dotenv
@@ -17,7 +18,7 @@ from langchain_groq import ChatGroq
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
 # Configuration
-CHROMA_DIR = "chroma_db"
+CHROMA_DIR = os.path.join(os.getcwd(), "chroma_db")
 EMBEDDING_MODEL_NAME = "sentence-transformers/all-MiniLM-L6-v2"
 
 @st.cache_resource
@@ -25,44 +26,46 @@ def get_embeddings():
     return HuggingFaceEmbeddings(model_name=EMBEDDING_MODEL_NAME, model_kwargs={'device': 'cpu'})
 
 def load_vectorstore():
-    """初始化或讀取 Vectorstore"""
-    return Chroma(persist_directory=CHROMA_DIR, embedding_function=get_embeddings())
+    """初始化或讀取 Vectorstore，加入 PersistentClient 保護"""
+    if not os.path.exists(CHROMA_DIR):
+        os.makedirs(CHROMA_DIR)
+
+    # 呢種寫法係目前最穩陣、避開 Tenant 報錯嘅方式
+    persistent_client = chromadb.PersistentClient(path=CHROMA_DIR)
+
+    return Chroma(
+        client=persistent_client,
+        embedding_function=get_embeddings()
+    )
 
 @st.cache_resource
 def get_llm(api_key: str):
-    # 使用 Groq 的 Llama 模型
     return ChatGroq(model="llama-3.3-70b-versatile", groq_api_key=api_key, temperature=0.3)
 
 def main():
     st.set_page_config(page_title="Source from PDF", layout="wide")
 
-    # 初始化 Session State
     if "processed_files" not in st.session_state:
         st.session_state["processed_files"] = set()
     if "messages" not in st.session_state:
         st.session_state["messages"] = []
 
-    # Sidebar 介面
     with st.sidebar:
         st.title("📚 管理中心")
 
-        # 功能：徹底清空數據庫
         if st.button("🔥 徹底清空所有書籍記憶"):
             if os.path.exists(CHROMA_DIR):
                 shutil.rmtree(CHROMA_DIR)
             st.session_state["processed_files"] = set()
             st.session_state["messages"] = []
-            # 強制清除 Streamlit 緩存，令 Vectorstore 重新載入
             st.cache_resource.clear()
-            st.success("數據庫已完全抹除！")
+            st.success("數據庫已抹除！")
             st.rerun()
 
         st.divider()
-
-        # 檔案上傳
         uploaded_file = st.file_uploader("上傳 PDF 講義", type=["pdf"])
 
-        # 獲取當前 Vectorstore 實例
+        # 建立 Vectorstore 實例
         vs = load_vectorstore()
 
         if uploaded_file:
@@ -75,7 +78,6 @@ def main():
                     loader = PyPDFLoader(tmp_path)
                     documents = loader.load()
 
-                    # 關鍵修正：將 metadata 中的 source 由臨時路徑改為原始檔名
                     for doc in documents:
                         doc.metadata["source"] = uploaded_file.name
 
@@ -86,10 +88,9 @@ def main():
                     os.remove(tmp_path)
                     st.rerun()
 
-        # 書籍列表與過濾
         st.divider()
+        # 獲取現有書籍
         all_data = vs.get()
-        # 從 DB 獲取唯一的來源名稱
         existing_files = sorted(list(set([m["source"] for m in all_data["metadatas"] if "source" in m])))
 
         selected_file = st.selectbox(
@@ -98,30 +99,19 @@ def main():
             index=0
         )
 
-        if existing_files:
-            st.caption(f"目前數據庫內共有 {len(existing_files)} 本書")
-
-    # 主聊天介面
     st.title("🎓 Study Assistant")
 
-    # API Key 與 LLM 初始化
     api_key = os.environ.get("GROQ_API_KEY")
     if not api_key:
-        st.error("找不到 GROQ_API_KEY，請檢查環境變數設定。")
+        st.error("請在 Secrets 加入 GROQ_API_KEY")
         return
 
-    try:
-        llm = get_llm(api_key)
-    except Exception as e:
-        st.error(f"模型載入失敗: {e}")
-        return
+    llm = get_llm(api_key)
 
-    # 顯示歷史對話
     for msg in st.session_state["messages"]:
         with st.chat_message(msg["role"]):
             st.markdown(msg["content"])
 
-    # 對話輸入
     if user_input := st.chat_input("問下書入面嘅內容..."):
         st.session_state["messages"].append({"role": "user", "content": user_input})
         with st.chat_message("user"):
@@ -129,22 +119,18 @@ def main():
 
         with st.chat_message("assistant"):
             try:
-                # 設定檢索參數與過濾器
                 search_kwargs = {"k": 4}
                 if selected_file != "全部書籍":
                     search_kwargs["filter"] = {"source": selected_file}
 
-                # 進行向量搜尋
                 docs = vs.similarity_search(user_input, **search_kwargs)
 
                 if not docs:
-                    answer = "喺選定嘅書籍入面搵唔到相關資料，或者數據庫係空嘅。"
+                    answer = "搵唔到相關資料。"
                 else:
                     context = "\n\n".join([d.page_content for d in docs])
-                    prompt = f"Context:\n{context}\n\nQuestion: {user_input}\n\nPlease answer in Traditional Chinese (Hong Kong)."
-
-                    response = llm.invoke(prompt)
-                    answer = response.content
+                    prompt = f"Context:\n{context}\n\nQuestion: {user_input}\n\nAnswer in Traditional Chinese:"
+                    answer = llm.invoke(prompt).content
 
                 st.markdown(answer)
                 st.session_state["messages"].append({"role": "assistant", "content": answer})
