@@ -38,8 +38,8 @@ def test_groq_connectivity():
     try:
         # 測試最輕量的模型確保通訊正常
         llm = ChatGroq(
-            temperature=0,
-            model_name="llama3-8b-8192",
+            temperature=0.3,
+            model_name="llama-3.3-70b-versatile",
             timeout=10
         )
         response = llm.invoke("Hello")
