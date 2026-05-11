@@ -1,0 +1,35 @@
+name: RAG Project CI
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 檢出代碼
+        uses: actions/checkout@v4
+
+      - name: 設定 Python 3.10
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+          cache: 'pip'
+
+      - name: 安裝依賴
+        run: |
+          python -m pip install --upgrade pip
+          # 確保你的 requirements.txt 包含: langchain-groq, chromadb, pypdf, pytest
+          pip install -r requirements.txt
+          pip install pytest
+
+      - name: 執行自動化測試
+        env:
+          # 這裡讀取你喺 GitHub Settings 設定嘅 Secrets
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+        run: |
+          pytest tests/test_rag_logic.py -v
