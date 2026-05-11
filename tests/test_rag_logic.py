@@ -11,6 +11,12 @@ class MockEmbedding:
     def embed_query(self, text):
         return [0.1] * 1536
 
+def test_dependencies_check():
+    """確保所有 RAG 需要嘅 Library 都裝好晒"""
+    import torchvision
+    import torch
+    assert torchvision.__version__ is not None
+
 def test_environment_variables():
     """1. 檢查核心環境變數"""
     # 確保 GitHub Secrets 或 Streamlit Secrets 有傳入 Groq Key
