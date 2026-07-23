@@ -73,34 +73,34 @@ def main():
     st.set_page_config(page_title="Source from PDF", page_icon="📚", layout="wide")
     st.markdown(PREMIUM_STYLE, unsafe_allow_html=True)
 
-    # 初始化 Session State
+    # Session State
     if "processed_files" not in st.session_state:
         st.session_state["processed_files"] = set()
     if "messages" not in st.session_state:
         st.session_state["messages"] = []
 
-    # 獲取 InMemory Vectorstore
+    # retrieve InMemory Vectorstore
     vs = load_vectorstore()
 
-    # --- 左側邊欄 ---
+    # --- Sidebar ---
     with st.sidebar:
-        st.title("📚 管理中心")
+        st.title("📚 Management Center")
 
-        # 記憶體重置按鈕 (保留一鍵清空功能)
-        if st.button("🔥 徹底清空所有書籍"):
+        # Memory reset button (keep the one-click clear feature)
+        if st.button("🔥 Clear All Books"):
             st.session_state["processed_files"] = set()
             st.session_state["messages"] = []
             st.cache_resource.clear()
-            st.success("所有記憶已重置！")
+            st.success("All memory has been reset!")
             st.rerun()
 
         st.divider()
-        st.subheader("📥 上傳書籍")
-        uploaded_file = st.file_uploader("上傳 PDF 講義", type=["pdf"], label_visibility="collapsed")
+        st.subheader("📥 Upload Books")
+        uploaded_file = st.file_uploader("Upload PDF Lecture Notes", type=["pdf"], label_visibility="collapsed")
 
         if uploaded_file:
             if uploaded_file.name not in st.session_state["processed_files"]:
-                with st.spinner("正在建立索引 (InMemory)..."):
+                with st.spinner("Indexing in progress (InMemory)..."):
                     with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
                         tmp.write(uploaded_file.getbuffer())
                         tmp_path = tmp.name
@@ -118,66 +118,66 @@ def main():
                     os.remove(tmp_path)
                     st.rerun()
 
-        # 獲取目前記憶體內有嘅書單
+        # Retrieve the list of books currently in memory
         all_data = vs.get()
         existing_files = sorted(list(set([m["source"] for m in all_data["metadatas"] if "source" in m])))
 
         st.divider()
-        st.subheader("🗑️ 刪除單一書籍")
+        st.subheader("🗑️ Delete a Single Book")
         if existing_files:
-            # 讓用戶選擇要刪除的書
-            file_to_delete = st.selectbox("選擇要移除嘅講義：", existing_files, key="delete_box")
+            # Let the user choose which book to delete
+            file_to_delete = st.selectbox("Select a lecture note to remove:", existing_files, key="delete_box")
 
-            if st.button(f"刪除 {file_to_delete}"):
-                # 1. 根據 source 名稱搵出所有對應嘅數據 ID
+            if st.button(f"Delete {file_to_delete}"):
+                # 1. Find all data IDs corresponding to the source name
                 target_data = vs.get(where={"source": file_to_delete})
                 ids_to_delete = target_data.get("ids", [])
 
                 if ids_to_delete:
-                    # 2. 叫 ChromaDB 刪除呢堆 ID
+                    # 2. Instruct ChromaDB to delete these IDs
                     vs.delete(ids=ids_to_delete)
 
-                # 3. 喺 Session State 入面除名
+                # 3. Remove from Session State
                 if file_to_delete in st.session_state["processed_files"]:
                     st.session_state["processed_files"].remove(file_to_delete)
 
-                st.success(f"已成功刪除 {file_to_delete}！")
+                st.success(f"Successfully deleted {file_to_delete}!")
                 st.rerun()
         else:
-            st.info("目前數據庫是空的")
+            st.info("The database is currently empty")
 
         st.divider()
-        st.subheader("🎯 閱讀設定")
+        st.subheader("🎯 Reading Settings")
         selected_file = st.selectbox(
-            "切換提問範圍：",
-            ["全部書籍"] + existing_files,
+            "Switch question scope:",
+            ["All Books"] + existing_files,
             index=0
         )
         if existing_files:
-            st.caption(f"目前共收錄 {len(existing_files)} 本書")
+            st.caption(f"Currently, {len(existing_files)} books are included")
 
-    # --- 主聊天區域 ---
+    # --- Main Chat Area ---
     st.title("🎓 Study Assistant")
     st.markdown("*SOURCE TO YOUR STUDIES*")
 
     api_key = os.environ.get("GROQ_API_KEY")
     if not api_key:
-        st.error("找不到 GROQ_API_KEY，請檢查環境變數或 Streamlit Secrets。")
+        st.error("GROQ_API_KEY not found, please check your environment variables or Streamlit Secrets.")
         return
 
     try:
         llm = get_llm(api_key)
     except Exception as e:
-        st.error(f"模型載入失敗: {e}")
+        st.error(f"Failed to load model: {e}")
         return
 
-    # 顯示歷史對話
+    # Display chat history
     for msg in st.session_state["messages"]:
         with st.chat_message(msg["role"]):
             st.markdown(msg["content"])
 
-    # 接收用戶輸入
-    if user_input := st.chat_input("問下書入面嘅內容..."):
+    # Receive user input
+    if user_input := st.chat_input("Ask about the content in the books..."):
         st.session_state["messages"].append({"role": "user", "content": user_input})
         with st.chat_message("user"):
             st.markdown(user_input)
@@ -185,16 +185,30 @@ def main():
         with st.chat_message("assistant"):
             try:
                 search_kwargs = {"k": 4}
-                if selected_file != "全部書籍":
+                if selected_file != "All Books":
                     search_kwargs["filter"] = {"source": selected_file}
 
                 docs = vs.similarity_search(user_input, **search_kwargs)
 
                 if not docs:
-                    answer = "喺目前嘅講義入面搵唔到相關資料。"
+                    answer = "Cannot find relevant information in the current lecture notes."
                 else:
                     context = "\n\n".join([d.page_content for d in docs])
-                    prompt = f"Context:\n{context}\n\nQuestion: {user_input}\n\nPlease answer in Traditional Chinese (Hong Kong)."
+                    prompt = f"""
+                    You are an expert Book Explainer. Your task is to explain and answer the user's question based EXCLUSIVELY on the provided Context.
+
+                    CRITICAL RULES:
+                    1. Answer ONLY using the provided Context below. Do NOT use any outside knowledge, prior training data, or assumptions.
+                    2. If the answer cannot be explicitly found in the Context, respond EXACTLY with: "I don't know, uploaded PDF doesn't provide the information"
+                    3. Do NOT guess or extrapolate.
+                    4. Please answer in Traditional Chinese (Hong Kong).
+
+                    Context:
+                    {context}
+
+                    Question: {user_input}
+                    Answer:
+                    """
 
                     response = llm.invoke(prompt)
                     answer = response.content
@@ -202,7 +216,7 @@ def main():
                 st.markdown(answer)
                 st.session_state["messages"].append({"role": "assistant", "content": answer})
             except Exception as e:
-                st.error(f"發生錯誤: {e}")
+                st.error(f"An error occurred: {e}")
 
 if __name__ == "__main__":
     main()
