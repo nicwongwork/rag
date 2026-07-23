@@ -6,7 +6,7 @@ import chromadb
 from pathlib import Path
 from dotenv import load_dotenv
 
-# 1. 載入環境變數
+# 1. Load environment variables
 env_path = Path(__file__).parent / '.env'
 load_dotenv(dotenv_path=env_path)
 
@@ -16,10 +16,10 @@ from langchain_community.vectorstores import Chroma
 from langchain_groq import ChatGroq
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
-# ====== 配置設定 ======
+# ====== Configuration ======
 EMBEDDING_MODEL_NAME = "sentence-transformers/all-MiniLM-L6-v2"
 
-# Premium UI 樣式
+# Premium UI Style
 PREMIUM_STYLE = """
 <style>
     .stApp {
@@ -59,7 +59,7 @@ def get_embeddings():
 
 @st.cache_resource
 def load_vectorstore():
-    """使用 EphemeralClient (InMemory)，徹底避開 Streamlit Cloud 嘅硬碟寫入報錯"""
+    """Use EphemeralClient (InMemory) to completely avoid Streamlit Cloud's hard disk write errors"""
     client = chromadb.EphemeralClient()
     return Chroma(client=client, embedding_function=get_embeddings())
 
