@@ -51,7 +51,7 @@ PREMIUM_STYLE = """
 </style>
 """
 
-# ====== 核心功能 ======
+# ====== Core Functions ======
 
 @st.cache_resource
 def get_embeddings():
@@ -67,7 +67,7 @@ def load_vectorstore():
 def get_llm(api_key: str):
     return ChatGroq(model="llama-3.3-70b-versatile", groq_api_key=api_key, temperature=0.3)
 
-# ====== 主介面 ======
+# ====== Main Interface ======
 
 def main():
     st.set_page_config(page_title="Source from PDF", page_icon="📚", layout="wide")
