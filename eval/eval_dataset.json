@@ -1,0 +1,32 @@
+[
+  {
+    "question": "什麼是 RAG (Retrieval-Augmented Generation)?",
+    "expected_answer": "RAG 是一種結合資訊檢索和文本生成的 AI 技術，通過從外部知識庫檢索相關文檔來增強語言模型的回答能力。",
+    "retrieved_contexts": [],
+    "generated_answer": ""
+  },
+  {
+    "question": "RAG 系統的主要組件有哪些?",
+    "expected_answer": "RAG 系統主要包含三個組件：檢索器 (Retriever)、生成器 (Generator) 和知識庫 (Knowledge Base)。",
+    "retrieved_contexts": [],
+    "generated_answer": ""
+  },
+  {
+    "question": "向量數據庫在 RAG 中扮演什麼角色?",
+    "expected_answer": "向量數據庫用於存儲文檔的嵌入向量，支持語義相似性搜索，使系統能夠快速找到與用戶查詢相關的文檔片段。",
+    "retrieved_contexts": [],
+    "generated_answer": ""
+  },
+  {
+    "question": "什麼是語義搜索 (Semantic Search)?",
+    "expected_answer": "語義搜索是一種基於向量相似度的搜索技術，通過計算查詢和文檔在向量空間中的距離來找到語義上相關的內容。",
+    "retrieved_contexts": [],
+    "generated_answer": ""
+  },
+  {
+    "question": "Chunking 在文檔處理中的作用是什麼?",
+    "expected_answer": "Chunking 是將長文檔分割成較小片段的過程，有助於提高檢索精度和控制生成模型的上下文窗口。",
+    "retrieved_contexts": [],
+    "generated_answer": ""
+  }
+]
