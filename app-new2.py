@@ -60,7 +60,7 @@ def get_embeddings():
 @st.cache_resource
 def load_vectorstore():
     """Use EphemeralClient (InMemory) to completely avoid Streamlit Cloud's hard disk write errors"""
-    client = chromadb.EphemeralClient()
+    client = chromadb.PersistentClient(path="./chroma_db")
     return Chroma(client=client, embedding_function=get_embeddings())
 
 @st.cache_resource
